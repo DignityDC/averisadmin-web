@@ -110,6 +110,7 @@ export function getSpectateSession(sessionId: string) {
     playerName: string;
     offer: RTCSessionDescriptionInit | null;
     ice: RTCIceCandidateInit[];
+    frame?: string | null;
   }>(`/api/spectate/session?sessionId=${encodeURIComponent(sessionId)}`);
 }
 

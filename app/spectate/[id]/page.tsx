@@ -80,9 +80,24 @@ export default function SpectatePage() {
         if (!res.ok) return;
         const session = await res.json();
         if (session.playerName) setName(session.playerName);
+        if (session.frame) {
+          setStatus('Live');
+          const src = session.frame.startsWith('data:') ? session.frame : `data:image/jpeg;base64,${session.frame}`;
+          const img = new Image();
+          img.onload = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            if (canvas.width !== img.width) canvas.width = img.width;
+            if (canvas.height !== img.height) canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = src;
+        }
         if (session.offer && !answered) {
           answered = true;
-          setStatus('Negotiating WebRTC…');
+          if (!session.frame) setStatus('Negotiating WebRTC…');
           await pc.setRemoteDescription(new RTCSessionDescription(session.offer));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
