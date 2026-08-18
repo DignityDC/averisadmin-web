@@ -17,6 +17,7 @@ const player = (name = 'player', desc = 'Server id or name') => ({
 export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'players', description: 'List online players', level: 'mod' },
   { name: 'server', description: 'Show server status', level: 'mod' },
+  { name: 'help', description: 'List staff slash commands', level: 'mod' },
   {
     name: 'player',
     description: 'Look up a player',

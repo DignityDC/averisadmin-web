@@ -29,11 +29,24 @@ function embed(title: string, description: string, ok = true) {
   };
 }
 
+export async function GET() {
+  return json({
+    ok: true,
+    endpoint: '/api/discord/interactions',
+    hint: 'Paste this full URL into Discord → General → Interactions Endpoint URL',
+  });
+}
+
 export async function POST(req: Request) {
   const signature = req.headers.get('x-signature-ed25519');
   const timestamp = req.headers.get('x-signature-timestamp');
   const raw = await req.text();
-  const publicKey = process.env.DISCORD_PUBLIC_KEY || '';
+  const publicKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
+
+  if (!publicKey) {
+    console.error('[sd_admin] DISCORD_PUBLIC_KEY is not set');
+    return json({ error: 'DISCORD_PUBLIC_KEY missing' }, 401);
+  }
 
   if (!signature || !timestamp || !verifyKey(raw, signature, timestamp, publicKey)) {
     return json({ error: 'invalid request signature' }, 401);
@@ -65,6 +78,11 @@ export async function POST(req: Request) {
   const actor = { name: `Discord: ${username}`, level };
 
   try {
+    if (name === 'help') {
+      const lines = ['Type `/` in Discord and choose a command. No prefix.'];
+      for (const cmd of SLASH_COMMANDS) lines.push(`\`/${cmd.name}\` (${cmd.level})`);
+      return json(embed('Commands', lines.join('\n')));
+    }
     if (name === 'players') {
       const { players } = await getPlayers();
       const lines = players.slice(0, 25).map((p) => `\`${p.id}\` ${p.charName || p.name} — ${p.job || 'Unemployed'}`);

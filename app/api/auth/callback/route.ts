@@ -1,20 +1,22 @@
 import { NextResponse } from 'next/server';
-import { createSession, siteUrl } from '@/lib/auth';
+import { createSession, oauthRedirectUri, siteUrl } from '@/lib/auth';
 import { levelFromRoles } from '@/lib/roles';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
+  const origin = siteUrl(req);
   if (!code) {
-    return NextResponse.redirect(`${siteUrl()}/login?error=missing_code`);
+    return NextResponse.redirect(`${origin}/login?error=missing_code`);
   }
 
+  const redirectUri = oauthRedirectUri(req);
   const body = new URLSearchParams({
     client_id: process.env.DISCORD_CLIENT_ID || '',
     client_secret: process.env.DISCORD_CLIENT_SECRET || '',
     grant_type: 'authorization_code',
     code,
-    redirect_uri: `${siteUrl()}/api/auth/callback`,
+    redirect_uri: redirectUri,
   });
 
   const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
@@ -24,7 +26,7 @@ export async function GET(req: Request) {
   });
   const tokenJson = await tokenRes.json();
   if (!tokenJson.access_token) {
-    return NextResponse.redirect(`${siteUrl()}/login?error=oauth`);
+    return NextResponse.redirect(`${origin}/login?error=oauth`);
   }
 
   const userRes = await fetch('https://discord.com/api/users/@me', {
@@ -37,12 +39,12 @@ export async function GET(req: Request) {
     headers: { Authorization: `Bearer ${tokenJson.access_token}` },
   });
   if (!memberRes.ok) {
-    return NextResponse.redirect(`${siteUrl()}/login?error=not_in_guild`);
+    return NextResponse.redirect(`${origin}/login?error=not_in_guild`);
   }
   const member = await memberRes.json();
   const level = levelFromRoles(member.roles || []);
   if (!level) {
-    return NextResponse.redirect(`${siteUrl()}/login?error=no_staff_role`);
+    return NextResponse.redirect(`${origin}/login?error=no_staff_role`);
   }
 
   const jwt = await createSession({
@@ -52,7 +54,7 @@ export async function GET(req: Request) {
     level,
   });
 
-  const res = NextResponse.redirect(`${siteUrl()}/`);
+  const res = NextResponse.redirect(`${origin}/`);
   res.cookies.set('sd_session', jwt, {
     httpOnly: true,
     sameSite: 'lax',

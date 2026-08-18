@@ -23,8 +23,9 @@ function loadEnv() {
 loadEnv();
 
 const commands = [
-  { name: 'players', description: 'List online players' },
-  { name: 'server', description: 'Show server status' },
+  { type: 1, name: 'players', description: 'List online players' },
+  { type: 1, name: 'server', description: 'Show server status' },
+  { type: 1, name: 'help', description: 'List staff slash commands' },
   {
     name: 'player',
     description: 'Look up a player',

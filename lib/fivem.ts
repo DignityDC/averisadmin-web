@@ -1,19 +1,45 @@
-const BASE = (process.env.FIVEM_API_URL || '').replace(/\/$/, '');
-const SECRET = process.env.FIVEM_API_SECRET || '';
+const SECRET = (process.env.FIVEM_API_SECRET || '').trim();
+
+function apiBase() {
+  let base = (process.env.FIVEM_API_URL || '').trim();
+  if (!base) throw new Error('FIVEM_API_URL is not set');
+  // txAdmin is :40120 — the resource HTTP API is the game port (usually 30120)
+  base = base.replace(/:40120\b/, ':30120').replace(/\/+$/, '').replace(/\/api$/i, '');
+  const pathPart = base.replace(/^https?:\/\//, '');
+  if (!pathPart.includes('/')) base = `${base}/sd_admin`;
+  return base;
+}
 
 async function fivem<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if (!BASE) throw new Error('FIVEM_API_URL is not set');
-  const headers = new Headers(init.headers);
-  headers.set('Content-Type', 'application/json');
-  if (SECRET) headers.set('X-Api-Secret', SECRET);
-  const res = await fetch(`${BASE}${path}`, {
+  const base = apiBase();
+  if (!SECRET) throw new Error('FIVEM_API_SECRET is not set on Vercel');
+  // FiveM matches header names exactly. Node's Headers class sends "X-Api-Secret"
+  // which 401s; a plain lowercase name works.
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'x-api-secret': SECRET,
+  };
+  const url = `${base}${path}`;
+  const res = await fetch(url, {
     ...init,
     headers,
     cache: 'no-store',
   });
-  const data = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let data: { error?: string } = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error || `FiveM API ${res.status}`);
+    if (res.status === 401) {
+      throw new Error('FiveM API secret mismatch. Set FIVEM_API_SECRET on Vercel to ServerConfig.Api.secret, then redeploy.');
+    }
+    const hint = /Route .+ not found/i.test(text)
+      ? ` — sd_admin is not started. In txAdmin console: ensure sd_admin`
+      : '';
+    throw new Error(data.error || `FiveM API ${res.status} (${url})${hint}`);
   }
   return data as T;
 }

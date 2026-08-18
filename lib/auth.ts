@@ -36,6 +36,41 @@ export async function readSession(): Promise<SessionUser | null> {
   }
 }
 
-export function siteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const PRODUCTION_SITE = 'https://averisadmin-web.vercel.app';
+
+function isLocalHost(value: string) {
+  return /localhost|127\.0\.0\.1/i.test(value);
+}
+
+function hostFromRequest(req?: Request) {
+  if (!req) return '';
+  return (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(',')[0].trim();
+}
+
+export function siteUrl(req?: Request) {
+  const host = hostFromRequest(req);
+  if (host && !isLocalHost(host)) {
+    const proto = req?.headers.get('x-forwarded-proto') || 'https';
+    return `${proto}://${host}`;
+  }
+
+  if (process.env.VERCEL) {
+    const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || '';
+    if (vercel) return `https://${vercel.replace(/^https?:\/\//, '')}`;
+    return PRODUCTION_SITE;
+  }
+
+  const env = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+  if (env && !isLocalHost(env)) return env;
+
+  if (host) {
+    const proto = req?.headers.get('x-forwarded-proto') || 'http';
+    return `${proto}://${host}`;
+  }
+
+  return env || 'http://localhost:3000';
+}
+
+export function oauthRedirectUri(req: Request) {
+  return `${siteUrl(req)}/api/auth/callback`;
 }
